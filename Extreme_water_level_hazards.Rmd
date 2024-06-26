@@ -88,57 +88,112 @@ dev.off()
 Figure : Height (in m relative to mean sea level in a given year) of the 1% annual exceedance probability (AEP) extreme mean total water level (MTWL) storm tide plus wave setup  (Source: [O’Grady et al 2019](https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2018JC014871), Canute 3). This shows the height of a water level from the combination of storm surge and tide and wave setup for sandy beaches with a 1% chance of occurring, these heights can be offset with a mean sea level reference to a given year and vertical datum (e.g. AHD) and can be generated for any SLR or AEP for NCRA. Heights can also be generated without the inclusion of damaging wave effect (still water level O’Grady et al 2009). Here, levelled heights can be integrated with land height data to map coastal flooding. Similar plots based on SCHISM data will be developed by ACS by June 2025.
 
 ```{r}
+# Set initial Sea Level Rise value
+SLR <- 0.6
 
-SLR = 0.6
-
-roms$SWL_MFSLR = exp(SLR/roms$SWLlam)
-roms$MTWL_MFSLR = exp(SLR/roms$MTWLlam)
-
-tg$SWL_MFSLR = exp(SLR/tg$mle_2)
-
-
-
-ats = c(0,1,2,5,10,20,50,100,200,Inf)
-logats = log(ats)
-
-plotMF = function(v,att,ats,buf=1,...){
-  extu = as.numeric(as.vector(ext(v)))
-  dat = cut(as.numeric(unlist(values(v[att]))),breaks = ats)
-  v$plot = dat
-  levs = levels(dat)
-  dumy = terra::vect(array(0,dim = c(length(levs),2)),"points")
-  dumy$plot = cut(ats,breaks = c(ats))
-  dumy = rbind(dumy,v)
+# Function to plot multiplication factors
+plotMF <- function(v, att, ats, buf = 1, SLR = 0.6, ...) {
+  v$SLR <- SLR
   
-  dumy = dumy[order(dumy$plot,decreasing = TRUE)]
-  plot(dumy,"plot",all_levels=TRUE,levels = levs,sort=FALSE,col = rev(viridis::viridis(length(ats-1))),
-       xlim = extu[1:2]+c(-buf,buf),ylim = extu[3:4]+c(-buf,buf),...)
+  if ("SWLlam" %in% names(v)) {
+    v$SWL_MFSLR_50 <- exp(SLR / v$SWLlam)
+    v$SWL_MFSLR_10 <- exp(SLR / (v$SWLlam + 1.28 * v$SWLlam_se))
+    v$SWL_MFSLR_90 <- exp(SLR / (v$SWLlam - 1.28 * v$SWLlam_se))
+    
+    v$MTWL_MFSLR_50 <- exp(SLR / v$MTWLlam)
+    v$MTWL_MFSLR_10 <- exp(SLR / (v$MTWLlam + 1.28 * v$MTWLlam_se))
+    v$MTWL_MFSLR_90 <- exp(SLR / (v$MTWLlam - 1.28 * v$MTWLlam_se))
+  }
+  
+  if ("mle_2" %in% names(v)) {
+    se = sqrt(tg$cov_22)
+    v$SWL_MFSLR_50 <- exp(SLR / tg$mle_2)
+    v$SWL_MFSLR_10 <- exp(SLR / tg$mle_2 + 1.28 * se)
+    v$SWL_MFSLR_90 <- exp(SLR / tg$mle_2 - 1.28 * se)
+    
+  }
+  
+  logats <- log(ats)
+  
+  extu <- as.numeric(as.vector(ext(v)))
+  dat <- cut(as.numeric(unlist(values(v[att]))), breaks = ats)
+  v$plot <- dat
+  levs <- levels(dat)
+  
+  dumy <- terra::vect(array(0, dim = c(length(ats), 2)), "points")
+  dumy$plot <- cut(ats, breaks = c(ats))
+  dumy <- rbind(dumy, v)
+  dumy <- dumy[order(dumy$plot, decreasing = TRUE)]
+  
+  terra::plot(dumy, "plot", levels = levs, sort = FALSE, 
+              col = rev(viridis::viridis(length(ats - 1))),
+              xlim = extu[1:2] + c(-buf, buf), ylim = extu[3:4] + c(-buf, buf), ...)
+  
+  return(v)
 }
 
-plotit = function(){
-  plotMF(roms,"SWL_MFSLR",ats=ats, main = paste0("Extreme Sea level magnification factor for ",SLR,"m of SLR"))
-  #lines(coast,col="grey")
-  plotMF(tg,"SWL_MFSLR",ats=ats,cex=1.5,add=TRUE,legend=FALSE)
-  plot(tg,cex = 1.5,pch=1,add=TRUE)
+# Function to create plots for specific SLR values
+plotit <- function(SLR) {
+  par(mfrow = c(1, 2))
+  
+  dat <- plotMF(v = roms, att = "SWL_MFSLR_50", ats = ats, SLR = SLR, 
+                main = paste0("Extreme SWL multiplication factor for ", SLR, "m of SLR"), 
+                mar = c(2, 2, 2, 4) + 0.1)
+  
+  ge <- geom(dat)
+  
+  out <- data.frame(
+    longitude = ge[, 3], 
+    latitude = ge[, 4], 
+    SLR = dat$SLR, 
+    SWL_AEP1PC = round(dat$SWL_RL + dat$SLR, 2), 
+    MTWL_AEP1PC = round(dat$MTWL_RL + dat$SLR, 2), 
+    SWL_MFSLR_50 = round(dat$SWL_MFSLR_50, 2), 
+    SWL_MFSLR_10 = round(dat$SWL_MFSLR_10, 2), 
+    SWL_MFSLR_90 = round(dat$SWL_MFSLR_90, 2), 
+    MTWL_MFSLR_50 = round(dat$MTWL_MFSLR_50, 2), 
+    MTWL_MFSLR_10 = round(dat$MTWL_MFSLR_10, 2), 
+    MTWL_MFSLR_90 = round(dat$MTWL_MFSLR_90, 2)
+  )
+  write.csv(out, file = paste0(outdir, "../data/MFSLR_ACSSH_MMALL_SLR", SLR * 100, "cm.csv"), row.names = FALSE)
+  
+  dattg <- plotMF(v=tg, att="SWL_MFSLR_50", ats = ats, SLR = SLR, cex = 1.5, add = TRUE, legend = FALSE)
+  plot(tg, cex = 1.5, SLR = SLR, pch = 1, add = TRUE)
+  plotMF(v = roms, att = "MTWL_MFSLR_50", ats = ats, SLR = SLR, 
+         main = paste0("Extreme MTWL multiplication factor for ", SLR, "m of SLR"), 
+         mar = c(2, 2, 2, 4) + 0.1)
 
+  ge <- geom(dattg)
+  dattg <- values(dattg)
+  outtg <- data.frame(
+    name <- dattg$Name,
+    nCompleteY <- dattg$nCompleteY,
+    longitude = ge[, 3], 
+    latitude = ge[, 4], 
+    SLR = dattg$SLR, 
+    SWL_AEP1PC = round(dattg$SWL_RL + dattg$SLR, 2), 
+    SWL_MFSLR_50 = round(dattg$SWL_MFSLR_50, 2), 
+    SWL_MFSLR_10 = round(dattg$SWL_MFSLR_10, 2), 
+    SWL_MFSLR_90 = round(dattg$SWL_MFSLR_90, 2) 
+  )
+  write.csv(outtg, file = paste0(outdir, "../data/MFSLR_GESLA3_MMALL_SLR", SLR * 100, "cm.csv"), row.names = FALSE)
+    
 }
 
-plotit()
-pdf(paste0(outdir,"SWL_MFSLR_",SLR,".pdf"),width=12)
-plotit()
-dev.off()
+# Break points for the plots
+ats <- c(0, 1, 2, 5, 10, 20, 50, 100, 200, Inf)
 
-```
-Figure : Multiplication/amplification factors ([Hunter 2012](https://link.springer.com/article/10.1007/s10584-011-0332-1)) of extreme storm tide water level AEPs (e.g. 1% AEP in Figure A1) for an amount of SLR (see figure title), overlayed here with GESLA3 tide gauge record estimates (Source Canute 3). Here, a AEP with an associated return level is mutiplied by these factors (e.g., 1% x 10) to yeild a new AEP (i.e., 10%) for the associated return level when considering sea level rise. These return levels can be aligned with coastal structure design levels (or DEMs) to understand the change in frequency of exceedence and can be generated for any SLR or AEP for the NCRA.
-```{r}
+# Different SLR values to plot
+SLRs <- c(0.06, 0.1, 0.2, 0.38, 0.6, 1.0)
+plotit(SLR = 0.6)
 
-plotit = function() plotMF(roms,"MTWL_MFSLR",ats=ats, main = paste0("Extreme Sea level magnification factor for ",SLR,"m of SLR"))
-
-plotit()
-pdf(paste0(outdir,"MTWL_MFSLR_",SLR,".pdf"),width=12)
-plotit()
-dev.off()
+# Loop over SLR values and generate plots and CSV files
+for (SLR in SLRs) {
+  pdf(paste0(outdir, "MFSLR_ACSSH_MM50_SLR_", SLR * 100, "cm.pdf"), width = 14, height = 5)
+  plotit(SLR)
+  dev.off()
+}
 
 
 ```
-Multiplication/amplification factors (Hunter 2012) of extreme mean total water level (storm tide plus wave setup) AEPs (e.g. 1% AEP in Figure A1) for an amount of of SLR (see figure title) (Source Canute 3). Here, a AEP with an associated return level is mutiplied by these factors (e.g., 1% x 10) to yeild a new AEP (i.e., 10%) for the associated return level when considering sea level rise. These return levels can be aligned with coastal structure design levels (or DEMs) to understand the change in frequency of exceedence and can be generated for any SLR or AEP for the NCRA.    
+Figure : Multiplication/amplification factors ([Hunter 2012](https://link.springer.com/article/10.1007/s10584-011-0332-1)) of extreme storm tide water level and mean total water level (storm tide plus wave setup) AEPs (e.g. 1% AEP in Figure A1) for an amount of SLR (see figure title), overlayed here with GESLA3 tide gauge record estimates (Source Canute 3). Here, a AEP with an associated return level is mutiplied by these factors (e.g., 1% x 10) to yeild a new AEP (i.e., 10%) for the associated return level when considering sea level rise. These return levels can be aligned with coastal structure design levels (or DEMs) to understand the change in frequency of exceedence and can be generated for any SLR or AEP for the NCRA.
