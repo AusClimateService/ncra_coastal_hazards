@@ -1,9 +1,7 @@
-# ncra_coastal_hazards
-Data and code to generate national coastal hazard maps
+# NCRA coastal code pipeline to process sea level rise increments of coastal hazard metrics using Canute values from O'Grady et al 2019 JGR oceans
+Data, plots and code to generate national coastal hazard maps
 
 Processing is explained in this [Rmarkdown notebook](https://htmlpreview.github.io/?https://github.com/AusClimateService/ncra_coastal_hazards/blob/main/Extreme_water_level_hazards.html)
-
-## NCRA coastal code pipeline to process sea level rise increments of coastal hazard metrics using Canute values from O'Grady et al 2019 JGR oceans
 
 Extreme value distribution parameters were sourced from [Canute 3](https://shiny.csiro.au/Canute3_0/) with reference to [O'Grady et al 2019](https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2018JC014871) to estimate Annual Exceedence Probabilites (AEPs) and AEP multiplication factors. Tide gauge estimates have been updated to the latest version of [GESLAv3](https://gesla787883612.wordpress.com/). Multiplication factors are explained in [Canute 3](https://shiny.csiro.au/Canute3_0/) 
 
