@@ -11,9 +11,9 @@
 
 <meta name="author" content="Julian O’Grady" />
 
-<meta name="date" content="2024-03-14" />
+<meta name="date" content="2024-06-26" />
 
-<title>O’Grady et al 2019 JGR oceans Extreme Water level estimates</title>
+<title>NCRA coastal code pipeline to process sea level rise increments of coastal hazard metrics using Canute values from O’Grady et al 2019 JGR oceans</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -350,14 +350,55 @@ display: none;
 
 
 
-<h1 class="title toc-ignore">O’Grady et al 2019 JGR oceans Extreme Water
-level estimates</h1>
+<h1 class="title toc-ignore">NCRA coastal code pipeline to process sea
+level rise increments of coastal hazard metrics using Canute values from
+O’Grady et al 2019 JGR oceans</h1>
 <h4 class="author">Julian O’Grady</h4>
-<h4 class="date">2024-03-14</h4>
+<h4 class="date">2024-06-26</h4>
 
 </div>
 
 
+<p>Extreme value distribution parameters were sourced from <a href="https://shiny.csiro.au/Canute3_0/">Canute 3</a> with reference to
+<a href="https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2018JC014871">O’Grady
+et al 2019</a> to estimate Annual Exceedence Probabilites (AEPs) and AEP
+multiplication factors. Tide gauge estimates have been updated to the
+latest version of <a href="https://gesla787883612.wordpress.com/">GESLAv3</a>. Multiplication
+factors are explained in <a href="https://shiny.csiro.au/Canute3_0/">Canute 3</a></p>
+<p>The code pipeline generates pdf images in the <a href="https://github.com/AusClimateService/ncra_coastal_hazards/tree/main/plots">plots</a>
+dir of this git repo, and csv files in the <a href="https://github.com/AusClimateService/ncra_coastal_hazards/tree/main/data">data</a>
+dir. 10th and 90th percentile estimates were made using 1.28 times the
+sqrt of the standard error of the scale parameter fit.</p>
+<p>File names are in the format
+&lt;metric&gt;_&lt;domain&gt;_&lt;multimodel_allpercentiles&gt;_&lt;SLR&gt;.csv:</p>
+<ul>
+<li>metric - Multiplication Factor</li>
+<li>domain - <a href="https://gesla787883612.wordpress.com/">GESLAv3</a>
+or <a href="https://data.csiro.au/collection/csiro:29013?q=coast%20hindcast&amp;_st=keyword&amp;_str=4&amp;_si=2">ACSSH</a></li>
+<li>multimodel_allpercentiles - files contain all percentiles.</li>
+<li>SLR - Sea level [cm]</li>
+</ul>
+<p>CSV columns represent:</p>
+<ul>
+<li>longitude</li>
+<li>latitude</li>
+<li>SLR - Sea level rise increment [m]</li>
+<li>SWL_AEP1PC - Still Water Level 1% AEP (including SLR) [m]</li>
+<li>MTWL_AEP1PC - Mean Total Water Level 1% AEP (including SLR and wave
+setup) [m]</li>
+<li>SWL_MFSLR_50 - SWL Multiplication Factor for the SLR 50th
+percentile</li>
+<li>SWL_MFSLR_10 - SWL Multiplication Factor for the SLR 10th
+percentile</li>
+<li>SWL_MFSLR_90 - SWL Multiplication Factor for the SLR 90th
+percentile</li>
+<li>MTWL_MFSLR_50 - MTWL Multiplication Factor for the SLR 50th
+percentile</li>
+<li>MTWL_MFSLR_10 - MTWL Multiplication Factor for the SLR 10th
+percentile</li>
+<li>MTWL_MFSLR_90 - MTWL Multiplication Factor for the SLR 90th
+percentile</li>
+</ul>
 <pre class="r"><code>require(terra)</code></pre>
 <pre><code>## Loading required package: terra</code></pre>
 <pre><code>## terra 1.7.71</code></pre>
@@ -546,7 +587,7 @@ plotit(SLR = 0.6)</code></pre>
 <pre class="r"><code># Loop over SLR values and generate plots and CSV files
 for (SLR in SLRs) {
   pdf(paste0(outdir, &quot;MFSLR_ACSSH_MM50_SLR_&quot;, SLR * 100, &quot;cm.pdf&quot;), width = 14, height = 5)
-  plotit(SLR)
+  plotit(SLR=SLR)
   dev.off()
 }</code></pre>
 <pre><code>## Warning in graphics::plot.xy(list(x = g[, 1], y = g[, 2]), type = &quot;p&quot;, pch =

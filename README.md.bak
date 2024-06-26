@@ -21,11 +21,11 @@ CSV columns represent:
 * longitude
 * latitude
 * SLR - Sea level rise increment [m]
-* SWL_AEP1PC - Still Water Level 1% AEP (storm tide including SLR) [m]
-* MTWL_AEP1PC - Mean Total Water Level 1% AEP (storm tide including SLR and wave setup) [m]
+* SWL_AEP1PC - Still Water Level 1% AEP (including SLR) [m]
+* MTWL_AEP1PC - Mean Total Water Level 1% AEP (including SLR and wave setup) [m]
 * SWL_MFSLR_50 - SWL Multiplication Factor for the SLR 50th percentile 
-* SWL_MFSLR_10 - SWL Multiplication Factor for the SLR 10th percentile 
-* SWL_MFSLR_90 - SWL Multiplication Factor for the SLR 90th percentile 
+* SWL_MFSLR_10 - SWL Multiplication Factor for the SLR 10th percentile (using ) 
+* SWL_MFSLR_90 - SWL Multiplication Factor for the SLR 90th percentile
 * MTWL_MFSLR_50 - MTWL Multiplication Factor for the SLR 50th percentile 
 * MTWL_MFSLR_10 - MTWL Multiplication Factor for the SLR 10th percentile 
 * MTWL_MFSLR_90 - MTWL Multiplication Factor for the SLR 90th percentile
