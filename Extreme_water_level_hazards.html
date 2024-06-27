@@ -361,9 +361,9 @@ O’Grady et al 2019 JGR oceans</h1>
 
 <p>Extreme value distribution parameters were sourced from <a href="https://shiny.csiro.au/Canute3_0/">Canute 3</a> with reference to
 <a href="https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2018JC014871">O’Grady
-et al 2019</a> to estimate Annual Exceedence Probabilites (AEPs) and AEP
-multiplication factors. Tide gauge estimates have been updated to the
-latest version of <a href="https://gesla787883612.wordpress.com/">GESLAv3</a>. Multiplication
+et al 2019</a> to estimate Annual Exceedance Probabilities (AEPs) and
+AEP multiplication factors. Tide gauge estimates have been updated to
+the latest version of <a href="https://gesla787883612.wordpress.com/">GESLAv3</a>. Multiplication
 factors are explained in <a href="https://shiny.csiro.au/Canute3_0/">Canute 3</a></p>
 <p>The code pipeline generates pdf images in the <a href="https://github.com/AusClimateService/ncra_coastal_hazards/tree/main/plots">plots</a>
 dir of this git repo, and csv files in the <a href="https://github.com/AusClimateService/ncra_coastal_hazards/tree/main/data">data</a>
@@ -378,7 +378,7 @@ or <a href="https://data.csiro.au/collection/csiro:29013?q=coast%20hindcast&amp;
 <li>multimodel_allpercentiles - files contain all percentiles.</li>
 <li>SLR - Sea level [cm]</li>
 </ul>
-<p>CSV columns represent:</p>
+<p>CSV file columns represent:</p>
 <ul>
 <li>longitude</li>
 <li>latitude</li>
@@ -399,10 +399,80 @@ percentile</li>
 <li>MTWL_MFSLR_90 - MTWL Multiplication Factor for the SLR 90th
 percentile</li>
 </ul>
-<pre class="r"><code>require(terra)</code></pre>
+<p>GESLAv3 csv file columns also include the TG name and the number of
+years with at least 80% of hourly observations (nCompleteYr).</p>
+<div id="the-ncra-will-explore-slr-increments-of-0.06-0.1-0.2-0.38-0.6-and-1.0-m" class="section level4">
+<h4>The NCRA will explore SLR increments of 0.06, 0.1, 0.2, 0.38, 0.6
+and 1.0 m</h4>
+<p>A value of SLR <strong>0.06</strong> extrapolates the current SLR
+trajectory from the IPCC AR6 baseline to 2020. Below is a table of
+global warming level (GWL) match ups to SSP to inform the SLR
+increments, based on IPCC Tables 9.9 and 9.10 in <a href="https://www.ipcc.ch/report/ar6/wg1/downloads/report/IPCC_AR6_WGI_Chapter09.pdf">Fox-Kemper
+et al 2021</a>.</p>
+<table>
+<colgroup>
+<col width="5%" />
+<col width="4%" />
+<col width="31%" />
+<col width="28%" />
+<col width="30%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Year</th>
+<th>GWL</th>
+<th>Table 9.10 (Indicative SSP for GWL)</th>
+<th>Table 9.9 (Closest SLR and Year)</th>
+<th>Table 9.9 Values Used for SLR Inc.</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>2030</td>
+<td>1.5</td>
+<td>SSP1-2.6</td>
+<td>SSP1-2.6</td>
+<td><strong>0.09</strong> (0.08–0.12)</td>
+</tr>
+<tr class="even">
+<td>2050</td>
+<td>2</td>
+<td>SSP1-2.6/SSP2-4.5</td>
+<td>SSP2-4.5</td>
+<td><strong>0.20</strong> (0.17–0.26)</td>
+</tr>
+<tr class="odd">
+<td>2090</td>
+<td>2</td>
+<td>SSP1-2.6/SSP2-4.5</td>
+<td>SSP1-2.6</td>
+<td><strong>0.39</strong> (0.30–0.54)</td>
+</tr>
+<tr class="even">
+<td>2090</td>
+<td>3</td>
+<td>SSP2-4.5/SSP3-7.0</td>
+<td>SSP5-8.5</td>
+<td><strong>0.63</strong> (0.52–0.83)</td>
+</tr>
+<tr class="odd">
+<td>2100</td>
+<td>5</td>
+<td>SSP5-8.5</td>
+<td>SSP5-8.5</td>
+<td>0.70 (0.63–<strong>1.01</strong>)</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code>#install.packages(&quot;terra&quot;)
+require(terra)</code></pre>
 <pre><code>## Loading required package: terra</code></pre>
 <pre><code>## terra 1.7.71</code></pre>
-<pre class="r"><code>outdir = &quot;plots/&quot;
+<pre class="r"><code>#choose input SLR increments 
+SLRs &lt;- c(0.06, 0.1, 0.2, 0.38, 0.6, 1.0)
+
+
+outdir = &quot;plots/&quot;
 colz = rev(c(&quot;#000078&quot;,&quot;#0000BB&quot;,&quot;#0000FF&quot;,&quot;#0C3AFC&quot;,&quot;#1975FA&quot;,&quot;#25B0F7&quot;,&quot;#32EBF5&quot;,&quot;#73EEE6&quot;,&quot;#B4F1D7&quot;,&quot;#F5F5C8&quot;,
              &quot;#F5F564&quot;,&quot;#F5E032&quot;,&quot;#F6CC00&quot;,&quot;#F7A300&quot;,&quot;#F97A00&quot;,&quot;#FB5100&quot;,&quot;#FF0000&quot;,&quot;#DA0006&quot;,&quot;#B5000D&quot;,&quot;#910014&quot;,
              &quot;#7B003D&quot;,&quot;#660066&quot;,&quot;#88008C&quot;,&quot;#AB00B2&quot;,&quot;#CD00D8&quot;,&quot;#F000FF&quot;,&quot;#CAA6DE&quot;,&quot;#DBA7DD&quot;,&quot;#EDA9D2&quot;))#,&quot;#FFABC7&quot;) )
@@ -579,7 +649,6 @@ plotit &lt;- function(SLR) {
 ats &lt;- c(0, 1, 2, 5, 10, 20, 50, 100, 200, Inf)
 
 # Different SLR values to plot
-SLRs &lt;- c(0.06, 0.1, 0.2, 0.38, 0.6, 1.0)
 plotit(SLR = 0.6)</code></pre>
 <pre><code>## Warning in graphics::plot.xy(list(x = g[, 1], y = g[, 2]), type = &quot;p&quot;, pch =
 ## pch, : &quot;SLR&quot; is not a graphical parameter</code></pre>
@@ -612,6 +681,7 @@ new AEP (i.e., 10%) for the associated return level when considering sea
 level rise. These return levels can be aligned with coastal structure
 design levels (or DEMs) to understand the change in frequency of
 exceedence and can be generated for any SLR or AEP for the NCRA.</p>
+</div>
 
 
 
