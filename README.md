@@ -3,7 +3,7 @@ Data, plots and code to generate national coastal hazard maps
 
 The NCRA [coastal inundation layers are explained here ](https://htmlpreview.github.io/?https://github.com/AusClimateService/ncra_coastal_hazards/blob/main/Inundation_layers.html)
 
-Processing is explained in this [Rmarkdown notebook](https://htmlpreview.github.io/?https://github.com/AusClimateService/ncra_coastal_hazards/blob/main/Extreme_water_level_hazards.html)
+Processing of the hazard metrics is explained in this [Rmarkdown notebook](https://htmlpreview.github.io/?https://github.com/AusClimateService/ncra_coastal_hazards/blob/main/Extreme_water_level_hazards.html)
 
 Extreme value distribution parameters were sourced from [Canute 3](https://shiny.csiro.au/Canute3_0/) with reference to [O'Grady et al 2019](https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2018JC014871) to estimate Annual Exceedance Probabilities (AEPs) and AEP multiplication factors. Tide gauge estimates have been updated to the latest version of [GESLAv3](https://gesla787883612.wordpress.com/). Multiplication factors are explained in [Canute 3](https://shiny.csiro.au/Canute3_0/) 
 
@@ -31,7 +31,14 @@ CSV file columns represent:
 * MTWL_MFSLR_90 - MTWL Multiplication Factor for the SLR 90th percentile
    
 GESLAv3 csv file columns also include the TG name and the number of years with at least 80% of hourly observations (nCompleteYr)  
-   
+
+#### HOW TO USE THE METRICS ####  
+  
+***The SWL MF is primarily a metric to evaluate the increase in coastal flooding in protected harbors and estuaries due to SLR.***   
+
+***The MTWL MF is primarily a metric to evaluate the increase in coastal erosion for ocean coasts.***  
+
+
 #### The NCRA will explore SLR increments of 0.06, 0.1, 0.2, 0.38, 0.6 and 1.0 m
   
 A value of SLR **0.06** extrapolates the current SLR trajectory from the IPCC AR6 baseline to 2020. Below is a table of global warming level (GWL) match ups to SSP to inform the SLR increments, based on IPCC Tables 9.9 and 9.10 in [Fox-Kemper et al 2021](https://www.ipcc.ch/report/ar6/wg1/downloads/report/IPCC_AR6_WGI_Chapter09.pdf).   
