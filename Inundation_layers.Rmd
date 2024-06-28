@@ -1,0 +1,38 @@
+---
+title: "NCRA Inundation layers"
+author: "Julian O'Grady"
+date: "2024-06-28"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Overview
+The CSIRO Climate Innovation Hub (CIH), on behalf of the Australian Climate Service (ACS), has developed coastal inundation layers covering all coastal capital cities and many regional cities around Australia. This method provides a nationally consistent dataset on the hazard of future coastal extreme sea levels and flooding. 
+  
+While the methods have certain assumptions and limitations, they offer valuable insights into plausible future climate conditions across Australia. These hazard layers can be combined with detailed local information about exposure and vulnerability to assess climate risks on a regional scale. 
+  
+One limitation of using inundation layers for evaluating impacts on individual properties is the dependence on the accuracy and resolution of the underlying data and models. These potential inaccuracies can lead to overestimations or underestimations of impact. However, when considering the number of affected properties at a larger, aggregated scale, the estimates become more reliable and robust for regional planning and risk assessment. For precise impact assessments at the individual property level, additional data and localised analysis should be employed. 
+  
+Coastal inundation layers are available for 164 Local Government Areas (LGAs) within Australia for different annual probabilities of coastal inundation (greater than 95%, between 95% and 50%, between 50% and 5% and less than 5%) for a given average recurrence interval (ARI) extreme coastal water level. The layers are at 5 metre resolution and are available in vector spatial file formats (.geoJSON .shp).
+
+The NCRA will explore 1% Annual Exceedance Probability (AEP) with SLR increments of 0.06, 0.1, 0.2, 0.38, 0.6 and 1.0 m. The layers represent 20-year periods relative to the IPCC AR6 baseline (centred on 2005) and projected future periods shown in the table below. 
+
+A value of SLR **0.06** extrapolates the current SLR trajectory from the IPCC AR6 baseline to 2020. Below is a table of global warming level (GWL) match ups to SSP to inform the SLR increments, based on IPCC Tables 9.9 and 9.10 in [Fox-Kemper et al 2021](https://www.ipcc.ch/report/ar6/wg1/downloads/report/IPCC_AR6_WGI_Chapter09.pdf). 
+
+| Year | GWL | Table 9.10 (Indicative SSP for GWL) | Table 9.9 (Closest SLR and Year) | Table 9.9 Values Used for SLR Inc. |
+|------|-----|-------------------------------------|----------------------------------|------------------------------------|
+| 2020 | 1.2 | SSP1-2.6                            | SSP1-2.6                         | **~0.06**                   |
+| 2030 | 1.5 | SSP1-2.6                            | SSP1-2.6                         | **0.09** (0.08–0.12)                   |
+| 2050 | 2   | SSP1-2.6/SSP2-4.5                   | SSP2-4.5                         | **0.20** (0.17–0.26)                   |
+| 2090 | 2   | SSP1-2.6/SSP2-4.5                   | SSP1-2.6                         | **0.39** (0.30–0.54)                   |
+| 2090 | 3   | SSP2-4.5/SSP3-7.0                   | SSP5-8.5                         | **0.63** (0.52–0.83)                   |
+| 2100 | 5   | SSP5-8.5                            | SSP5-8.5                         | 0.70 (0.63–**1.01**)                   |
+
+The dataset is split into 164 LGA folders. Each folder include 6 folders representing the different time periods, SSPs, for a 100 year ARI. Each folder includes both shapefile and geoJSON files for the resulting hazard layers. An automated report, ending in "report.html," is also generated. This report details the values used to create the hazard layers and includes tables of extreme water levels, plots showing return levels and future water level predictions, as well as low-resolution plots of the input domains and the resulting hazard layers. The geoJSON files for the hazard layers include graphical attributes that can be displayed when uploaded into web mapping software (e.g. [National Map](https://nationalmap.gov.au/)).  A shapefile is also provided which details the input data and calculated water levels (i.e. the metadata). 
+
+The data is available on NCI, e.g. ```@gadi-dm.nci.org.au:/g/data/ia39/ncra/coastal/flood_extents/```.
+
+A list of LGAs is provided [here: LGA_and_states_list.csv](https://github.com/AusClimateService/ncra_coastal_hazards/blob/main/LGA_and_states_list.csv)
