@@ -56,8 +56,10 @@ A value of SLR **0.06** extrapolates the current SLR trajectory from the IPCC AR
 require(terra)
 
 
-#choose input SLR increments 
+#choose input SLR increments from AR6 
 SLRs <- c(0.06, 0.1, 0.2, 0.38, 0.6, 1.0)
+#also need increments form NCRA baseline
+SLRs <- c(SLRs,SLRs[-1]-SLRs[1])
 
 
 outdir = "plots/"

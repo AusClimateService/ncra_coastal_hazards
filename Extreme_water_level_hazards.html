@@ -468,8 +468,10 @@ et al 2021</a>.</p>
 require(terra)</code></pre>
 <pre><code>## Loading required package: terra</code></pre>
 <pre><code>## terra 1.7.71</code></pre>
-<pre class="r"><code>#choose input SLR increments 
+<pre class="r"><code>#choose input SLR increments from AR6 
 SLRs &lt;- c(0.06, 0.1, 0.2, 0.38, 0.6, 1.0)
+#also need increments form NCRA baseline
+SLRs &lt;- c(SLRs,SLRs[-1]-SLRs[1])
 
 
 outdir = &quot;plots/&quot;
@@ -660,6 +662,16 @@ for (SLR in SLRs) {
   dev.off()
 }</code></pre>
 <pre><code>## Warning in graphics::plot.xy(list(x = g[, 1], y = g[, 2]), type = &quot;p&quot;, pch =
+## pch, : &quot;SLR&quot; is not a graphical parameter
+## Warning in graphics::plot.xy(list(x = g[, 1], y = g[, 2]), type = &quot;p&quot;, pch =
+## pch, : &quot;SLR&quot; is not a graphical parameter
+## Warning in graphics::plot.xy(list(x = g[, 1], y = g[, 2]), type = &quot;p&quot;, pch =
+## pch, : &quot;SLR&quot; is not a graphical parameter
+## Warning in graphics::plot.xy(list(x = g[, 1], y = g[, 2]), type = &quot;p&quot;, pch =
+## pch, : &quot;SLR&quot; is not a graphical parameter
+## Warning in graphics::plot.xy(list(x = g[, 1], y = g[, 2]), type = &quot;p&quot;, pch =
+## pch, : &quot;SLR&quot; is not a graphical parameter
+## Warning in graphics::plot.xy(list(x = g[, 1], y = g[, 2]), type = &quot;p&quot;, pch =
 ## pch, : &quot;SLR&quot; is not a graphical parameter
 ## Warning in graphics::plot.xy(list(x = g[, 1], y = g[, 2]), type = &quot;p&quot;, pch =
 ## pch, : &quot;SLR&quot; is not a graphical parameter
