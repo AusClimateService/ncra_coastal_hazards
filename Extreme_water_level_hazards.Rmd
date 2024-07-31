@@ -72,7 +72,6 @@ ncolz = length(colz)
 colzRamp = colorRampPalette(rev(colz))
 
 
-
 ```
 
 ```{r}
@@ -88,6 +87,29 @@ nb = nearby(roms,tg)
 roms$muOff = tg$mle_1[nb[,2]]
 
 ```
+
+```{r}
+#Define a region for each point
+#regions = project(vect("Coastal_Waters_areas_(AMB2020)"),roms)
+#regions$state = c("VIC","TAS","QLD","NT","WA","SA","NSW")
+
+regionsb = project(vect("NCRA_regions_coastal_waters_GDA94"),roms)
+regionsb$short_name = regionsb$NCRA
+regionsc = project(vect("ncra_regions"),roms)
+
+regionsl = lapply(regionsb$short_name, function(x) {
+  y = aggregate(union(regionsb[regionsb$short_name == x],regionsc[regionsc$short_name == x]));
+  y$state = x;y})
+regions = vect(regionsl)
+regions$state
+plot(regions,"state")
+
+ints = relate(roms,regions,"intersects",pairs=TRUE)
+roms$sate = NA
+roms$state[ints[,1]] = regions$state[ints[,2]]
+plot(roms,"state")
+```
+
 
 ```{r}
 
@@ -193,6 +215,7 @@ plotit <- function(SLR) {
   ge <- geom(dat)
   
   out <- data.frame(
+    state = dat$state,
     longitude = ge[, 3], 
     latitude = ge[, 4], 
     SLR = dat$SLR, 
