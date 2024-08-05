@@ -60,7 +60,7 @@ require(terra)
 SLRs <- c(0.06, 0.1, 0.2, 0.38, 0.6, 1.0)
 #also need increments form NCRA baseline
 SLRs <- c(SLRs,SLRs[-1]-SLRs[1])
-
+SLRs <- c(0.09,0.20)
 
 outdir = "plots/"
 colz = rev(c("#000078","#0000BB","#0000FF","#0C3AFC","#1975FA","#25B0F7","#32EBF5","#73EEE6","#B4F1D7","#F5F5C8",
@@ -269,3 +269,173 @@ for (SLR in SLRs) {
 
 ```
 Figure : Multiplication/amplification factors ([Hunter 2012](https://link.springer.com/article/10.1007/s10584-011-0332-1)) of extreme storm tide water level and mean total water level (storm tide plus wave setup) AEPs (e.g. 1% AEP in Figure A1) for an amount of SLR (see figure title), overlayed here with GESLA3 tide gauge record estimates (Source Canute 3). Here, a AEP with an associated return level is mutiplied by these factors (e.g., 1% x 10) to yeild a new AEP (i.e., 10%) for the associated return level when considering sea level rise. These return levels can be aligned with coastal structure design levels (or DEMs) to understand the change in frequency of exceedence and can be generated for any SLR or AEP for the NCRA.
+
+```{r}
+# Load necessary libraries
+library(dplyr)
+library(stringr)
+library(tidyr)
+
+# Define the sea level rise increments
+#SLRs <- c(0.06, 0.1, 0.2, 0.38, 0.6, 1.0)
+#SLRs <- SLRs[-1] - SLRs[1]
+
+# Define the input file paths
+infiles <- paste0("data/MFSLR_ACSSH_MMALL_SLR", SLRs * 100, "cm.csv")
+
+# Initialize empty lists to store results for SWL and MTWL
+results_swl <- list()
+results_mtwl <- list()
+
+# Loop over each file
+for (file in infiles) {
+  # Load the dataset
+  data <- read.csv(file)
+  
+  # Extract the SLR value from the file name
+  slr_value <- as.numeric(str_extract(file, "\\d+")) / 100  # Convert to float
+  
+  # Find the row with the median SWL_MFSLR_50 for each state
+  median_rows_swl <- data %>%
+    group_by(state) %>%
+    slice(which.min(abs(SWL_MFSLR_50 - median(SWL_MFSLR_50)))) %>%
+    mutate(SLR = slr_value)  # Use the extracted and converted SLR value
+  
+  # Append the SWL result to the results list
+  results_swl[[file]] <- median_rows_swl
+  
+  # Find the row with the median MTWL_MFSLR_50 for each state
+  median_rows_mtwl <- data %>%
+    group_by(state) %>%
+    slice(which.min(abs(MTWL_MFSLR_50 - median(MTWL_MFSLR_50)))) %>%
+    mutate(SLR = slr_value)  # Use the extracted and converted SLR value
+  
+  # Append the MTWL result to the results list
+  results_mtwl[[file]] <- median_rows_mtwl
+}
+
+# Combine all results into single data frames
+final_results_swl <- bind_rows(results_swl)
+final_results_mtwl <- bind_rows(results_mtwl)
+
+# Optionally, you can save the final results to CSV files
+write.csv(final_results_swl, "data/Median_SWL_MFSLR_50_by_State.csv", row.names = FALSE)
+write.csv(final_results_mtwl, "data/Median_MTWL_MFSLR_50_by_State.csv", row.names = FALSE)
+
+# Create a new table for SWL with states as rows and SLR values as columns
+formatted_table_swl <- final_results_swl %>%
+  mutate(SWL_MFSLR_50_Range = ifelse(SWL_MFSLR_50 > 200, 
+                                     ">200 [>200 - >200]", 
+                                     paste0(SWL_MFSLR_50, " [", 
+                                            ifelse(SWL_MFSLR_10 > 200, ">200", SWL_MFSLR_10), " - ", 
+                                            ifelse(SWL_MFSLR_90 > 200, ">200", SWL_MFSLR_90), "]"))) %>%
+  select(state, SLR, SWL_MFSLR_50_Range) %>%
+  pivot_wider(names_from = SLR, values_from = SWL_MFSLR_50_Range)
+
+# Display the formatted SWL table
+print(formatted_table_swl)
+
+# Save the formatted SWL table to a CSV file
+write.csv(formatted_table_swl, "data/Formatted_SWL_MFSLR_50_Table.csv", row.names = FALSE)
+
+# Create a new table for MTWL with states as rows and SLR values as columns
+formatted_table_mtwl <- final_results_mtwl %>%
+  mutate(MTWL_MFSLR_50_Range = ifelse(MTWL_MFSLR_50 > 200, 
+                                      ">200 [>200 - >200]", 
+                                      paste0(MTWL_MFSLR_50, " [", 
+                                             ifelse(MTWL_MFSLR_10 > 200, ">200", MTWL_MFSLR_10), " - ", 
+                                             ifelse(MTWL_MFSLR_90 > 200, ">200", MTWL_MFSLR_90), "]"))) %>%
+  select(state, SLR, MTWL_MFSLR_50_Range) %>%
+  pivot_wider(names_from = SLR, values_from = MTWL_MFSLR_50_Range)
+
+# Display the formatted MTWL table
+print(formatted_table_mtwl)
+
+# Save the formatted MTWL table to a CSV file
+write.csv(formatted_table_mtwl, "data/Formatted_MTWL_MFSLR_50_Table.csv", row.names = FALSE)
+
+```
+```{r}
+# Load necessary libraries
+library(ggplot2)
+library(dplyr)
+
+new_data <- read.csv("data/Median_MTWL_MFSLR_50_by_State.csv")
+
+# Create a PDF file to save the plots
+pdf("plots/SLR_vs_MTWL_MFSLR_by_State.pdf")
+
+# Get a list of unique states
+states <- unique(new_data$state)
+states = states[!is.na(states)]
+
+par(mfrow = c(3,3),mar = c(4,4,1,1))
+# Loop over each state and create a plot
+for (state in states) {
+  # Filter data for the current state and remove NA rows
+  state_data <- new_data[new_data$state == state, ]
+  state_data <- na.omit(state_data)
+  
+  # Set up the plot with the y-axis fixed between 0 and 200
+  plot(state_data$SLR, state_data$MTWL_MFSLR_50, type = "l", col = "blue",
+       ylim = c(0, 200), xlab = "SLR (Sea Level Rise)",
+       ylab = "MTWL Magnification Factor", 
+       main = paste(" ", state))
+  
+  # Add the ribbon as a shaded polygon
+  polygon(c(state_data$SLR, rev(state_data$SLR)),
+          c(state_data$MTWL_MFSLR_10, rev(state_data$MTWL_MFSLR_90)),
+          col = rgb(0, 0, 1, alpha = 0.2), border = NA)
+  
+  # Add the 50th percentile line on top
+  lines(state_data$SLR, state_data$MTWL_MFSLR_50, col = "blue", lwd = 2)
+}
+
+
+# Close the PDF device
+dev.off()
+
+```
+
+
+
+
+```{r}
+
+# Load the dataset
+new_data <- read.csv("data/Median_MTWL_MFSLR_50_by_State.csv")
+
+# Create a PDF file to save the plots
+pdf("plots/SLR_vs_SWL_MFSLR_by_State.pdf")
+
+# Get a list of unique states
+states <- unique(new_data$state)
+states <- states[!is.na(states)]
+
+# Set up the plotting area for multiple plots
+par(mfrow = c(3, 3), mar = c(4, 4, 1, 1))
+
+# Loop over each state and create a plot
+for (state in states) {
+  # Filter data for the current state and remove NA rows
+  state_data <- new_data[new_data$state == state, ]
+  state_data <- na.omit(state_data)
+  
+  # Set up the plot with the y-axis fixed between 0 and 200
+  plot(state_data$SLR, state_data$SWL_MFSLR_50, type = "l", col = "blue",
+       ylim = c(0, 200), xlab = "SLR (Sea Level Rise)",
+       ylab = "SWL Magnification Factor", 
+       main = paste(" ", state))
+  
+  # Add the ribbon as a shaded polygon
+  polygon(c(state_data$SLR, rev(state_data$SLR)),
+          c(state_data$SWL_MFSLR_10, rev(state_data$SWL_MFSLR_90)),
+          col = rgb(0, 0, 1, alpha = 0.2), border = NA)
+  
+  # Add the 50th percentile line on top
+  lines(state_data$SLR, state_data$SWL_MFSLR_50, col = "blue", lwd = 2)
+}
+
+# Close the PDF device
+dev.off()
+```
