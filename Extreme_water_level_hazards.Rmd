@@ -140,7 +140,65 @@ lines(lgas)
 
 #writeVector(roms,"roms/roms.shp",overwrite=TRUE)
 ```
+Confidence intervals
+```{r}
+#90 percent confidence intervals around the maximum likelihood estimate (MLE) GEV or MC EVD were computed from the quantiles of 100 Monte Carlo simulations of the fitted model.
+#larger nMonteCarloSims results in smaller confidence bounds.
+gumbel_mleAndConfIntvals = function(loc,scale,ARI = 1:500,nMonteCarloSims = 100,myseed = 19811019){
+  require(evd)
+  set.seed(myseed)
+  if(length(ARI) == 1) ARIs = c(ARI-.9,ARI-.5,ARI,ARI+.5,ARI+.9)
+  if(length(ARI) > 1) ARIs = ARI
+  ARI_max = max(ARIs)
+  nSampes = nMonteCarloSims
+  samp <- rgev(nSampes * 99, loc = loc, scale = scale,shape = 0)
+  samp <- matrix(samp, nSampes, 99)
+  samp <- apply(samp, 2, sort)
+  samp <- apply(samp, 1, sort)
+  env <- t(samp[c(5,50, 95), ])
+  xx <- -1/log((1:nSampes)/(nSampes + 1))
+  newdata <-  -1/log((ARIs)/(ARI_max + 1))
 
+  fits = data.frame(logxx = log(xx),env1=env[, 1],env2=env[, 2],env3=env[, 3])
+  #probablity fitted with loess function
+  p05 = predict(loess(env1 ~ logxx,fits,control = loess.control(surface = "direct")),newdata = data.frame(logxx = log(newdata)))
+  p50 = predict(loess(env2 ~ logxx,fits,control = loess.control(surface = "direct")),newdata = data.frame(logxx = log(newdata)))
+  p95  = predict(loess(env3 ~ logxx,fits,control = loess.control(surface = "direct")),newdata = data.frame(logxx = log(newdata)))
+  #exceedence probablity (1-probability), linear interpolate to input ARIs
+
+  AEPs = 1-exp(-1/ARI)
+  mle  = qgumbel(1-AEPs,loc =  loc, scale =  scale)
+
+  ep95 = approx(newdata,p05,ARI)$y
+  ep50 = approx(newdata,p50,ARI)$y
+  ep05 = approx(newdata,p95,ARI)$y
+
+  return(data.frame(ARIs = ARI,ep05 = ep05-ep50+mle,ep50=mle,ep95=ep95-ep50+mle))
+}
+
+SWL_rls = t(sapply(1:length(roms), function(x) t(gumbel_mleAndConfIntvals(loc = roms$muOff[x],scale = roms$SWLlam[x],ARI = 100,nMonteCarloSims = 100))))
+MTWL_rls = t(sapply(1:length(roms), function(x) t(gumbel_mleAndConfIntvals(loc = roms$muOff[x]-roms$SWLmu[x]+roms$MTWLmu[x],scale = roms$MTWLlam[x],ARI = 100,nMonteCarloSims = 100))))
+
+gg = terra::geom(roms)
+out = data.frame(state = roms$state,lga = roms$lga,longitude = gg[,3],latitude = gg[,4],
+                 SWL_pc5 = SWL_rls[,4], SWLpc50 = SWL_rls[,3], SWLpc95 = SWL_rls[,2],
+                 MTWL_pc5 = MTWL_rls[,4], MTWLpc50 = MTWL_rls[,3], MTWLpc95 = MTWL_rls[,2])
+
+saout = out[out$state == "SA",]
+write.csv(saout,"data/SA_ROMS_CAWCR_OGRADY_ET_AL_2019_1pcAEP.csv",row.names = FALSE)
+
+tgsa = crop(tg,ext(roms[roms$state == "SA"]))
+
+tg_SWL_rls = t(sapply(1:length(tgsa), function(x) t(gumbel_mleAndConfIntvals(loc = tgsa$mle_1[x],scale = tgsa$mle_2[x],ARI = 100,nMonteCarloSims = 100))))
+
+gg = terra::geom(tgsa)
+tgout = data.frame(name = tgsa$Name,nCompleteYears = tgsa$nCompleteY,longitude = gg[,3],latitude = gg[,4],
+                 SWL_pc5 = tg_SWL_rls[,4], SWLpc50 = tg_SWL_rls[,3], SWLpc95 = tg_SWL_rls[,2])
+
+write.csv(tgout,"data/SA_GESLA3_TIDEGAUGES_OGRADY_ET_AL_2019_1pcAEP.csv",row.names = FALSE)
+
+
+```
 
 ```{r}
 
@@ -150,6 +208,7 @@ return_level <- function(mu,lam,AEP){
   z = mu+lam*(-log(-log(1-AEP)))
   return(z)
 }
+
 
 #storm tide return level
 roms$SWL_RL = return_level(roms$muOff,roms$SWLlam,AEP)
