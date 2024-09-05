@@ -105,9 +105,40 @@ regions$state
 plot(regions,"state")
 
 ints = relate(roms,regions,"intersects",pairs=TRUE)
-roms$sate = NA
+roms$state = NA
 roms$state[ints[,1]] = regions$state[ints[,2]]
 plot(roms,"state")
+```
+
+
+```{r}
+lgas = vect("LGA_2024_AUST_GDA2020")
+lgas$id = 1:length(lgas)
+roms$id = 1:length(roms)
+romsp = project(roms,lgas)
+
+require(sf)
+nearest_lgas <- function(romsp, lgas) {
+  # Convert SpatVector objects to sf objects
+  romsp_sf <- st_as_sf(romsp)
+  lgas_sf <- st_as_sf(lgas)
+  
+  # Find the nearest LGAs for each romsp feature
+  nearest_indices <- st_nearest_feature(romsp_sf, lgas_sf)
+  
+  # Return the corresponding nearest LGA geometries or data
+  nearest_lgas <- lgas_sf[nearest_indices, ]
+  
+  return(nearest_lgas)
+}
+
+result <- nearest_lgas(romsp, lgas)
+roms$lga = result$LGA_NAME24
+plot(roms,"lga")
+lines(lgas)
+length(unique(roms$lga))
+
+writeVector(roms,"roms/roms.shp",overwrite=TRUE)
 ```
 
 
@@ -216,6 +247,7 @@ plotit <- function(SLR) {
   
   out <- data.frame(
     state = dat$state,
+    lga = dat$lga,
     longitude = ge[, 3], 
     latitude = ge[, 4], 
     SLR = dat$SLR, 
