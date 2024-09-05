@@ -59,8 +59,8 @@ require(terra)
 #choose input SLR increments from AR6 
 SLRs <- c(0.06, 0.1, 0.2, 0.38, 0.6, 1.0)
 #also need increments form NCRA baseline
-SLRs <- c(SLRs,SLRs[-1]-SLRs[1])
-SLRs <- c(0.09,0.20)
+SLRs <- c(SLRs,SLRs[-1]-SLRs[1],0,0.9)
+#SLRs <- c(0.09,0.20)
 
 outdir = "plots/"
 colz = rev(c("#000078","#0000BB","#0000FF","#0C3AFC","#1975FA","#25B0F7","#32EBF5","#73EEE6","#B4F1D7","#F5F5C8",
@@ -136,9 +136,9 @@ result <- nearest_lgas(romsp, lgas)
 roms$lga = result$LGA_NAME24
 plot(roms,"lga")
 lines(lgas)
-length(unique(roms$lga))
+#length(unique(roms$lga))
 
-writeVector(roms,"roms/roms.shp",overwrite=TRUE)
+#writeVector(roms,"roms/roms.shp",overwrite=TRUE)
 ```
 
 
