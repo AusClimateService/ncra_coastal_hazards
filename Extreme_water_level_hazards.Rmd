@@ -116,7 +116,25 @@ lgas = vect("LGA_2024_AUST_GDA2020")
 lgas$id = 1:length(lgas)
 roms$id = 1:length(roms)
 romsp = project(roms,lgas)
+```
 
+
+```{r}
+lgas_coast = buffer(as.lines(buffer(terra::aggregate(lgas),0)),5)
+lgas_coast
+plot(lgas_coast,col=2)
+
+```
+
+```{r}
+ints = intersect(lgas,lgas_coast)
+lga_coast_cp = centroids(ints,inside = TRUE)
+gg = geom(lga_coast_cp)
+out = data.frame(lga = lga_coast_cp$LGA_NAME24,longitude = gg[,3],latitude = gg[,4])
+write.csv(out,file = paste0("data/Coastal_lga_5m_centroid.csv"))
+```
+
+```{r}
 require(sf)
 nearest_lgas <- function(romsp, lgas) {
   # Convert SpatVector objects to sf objects
