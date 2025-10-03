@@ -2,7 +2,7 @@
 title: "NCRA coastal code pipeline to process sea level rise increments of coastal hazard metrics using Canute values from O'Grady et al 2019 JGR oceans"
 author: "Julian O'Grady"
 date: "2024-06-26"
-output: html_document
+output: html_document 
 ---
 
 Extreme value distribution parameters were sourced from [Canute 3](https://shiny.csiro.au/Canute3_0/) with reference to [O'Grady et al 2019](https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2018JC014871) to estimate Annual Exceedance Probabilities (AEPs) and AEP multiplication factors. Tide gauge estimates have been updated to the latest version of [GESLAv3](https://gesla787883612.wordpress.com/). Multiplication factors are explained in [Canute 3](https://shiny.csiro.au/Canute3_0/) 
@@ -21,8 +21,8 @@ CSV file columns represent:
 * longitude
 * latitude
 * SLR - Sea level rise increment [m]
-* SWL_AEP1PC - Still Water Level 1% AEP (including SLR) [m]
-* MTWL_AEP1PC - Mean Total Water Level 1% AEP (including SLR and wave setup) [m]
+* SWL_AEPPC - Still Water Level AEP (including SLR) [m]
+* MTWL_AEPPC - Mean Total Water Level AEP (including SLR and wave setup) [m]
 * SWL_MFSLR_50 - SWL Multiplication Factor for the SLR 50th percentile 
 * SWL_MFSLR_10 - SWL Multiplication Factor for the SLR 10th percentile 
 * SWL_MFSLR_90 - SWL Multiplication Factor for the SLR 90th percentile
@@ -158,6 +158,29 @@ lines(lgas)
 
 #writeVector(roms,"roms/roms.shp",overwrite=TRUE)
 ```
+
+
+```{r}
+
+#predict return levels
+AEP = 0.1
+return_level <- function(mu,lam,AEP){
+  z = mu+lam*(-log(-log(1-AEP)))
+  return(z)
+}
+
+
+#storm tide return level
+roms$SWL_RL = return_level(roms$muOff,roms$SWLlam,AEP)
+#storm tide plus wave setup
+roms$MTWL_RL = return_level(roms$muOff-roms$SWLmu+roms$MTWLmu,roms$MTWLlam,AEP)
+
+tg$SWL_RL = return_level(tg$mle_1,tg$mle_2,AEP)
+
+#compute MTWL
+```
+
+
 Confidence intervals
 ```{r}
 #90 percent confidence intervals around the maximum likelihood estimate (MLE) GEV or MC EVD were computed from the quantiles of 100 Monte Carlo simulations of the fitted model.
@@ -194,8 +217,8 @@ gumbel_mleAndConfIntvals = function(loc,scale,ARI = 1:500,nMonteCarloSims = 100,
   return(data.frame(ARIs = ARI,ep05 = ep05-ep50+mle,ep50=mle,ep95=ep95-ep50+mle))
 }
 
-SWL_rls = t(sapply(1:length(roms), function(x) t(gumbel_mleAndConfIntvals(loc = roms$muOff[x],scale = roms$SWLlam[x],ARI = 100,nMonteCarloSims = 100))))
-MTWL_rls = t(sapply(1:length(roms), function(x) t(gumbel_mleAndConfIntvals(loc = roms$muOff[x]-roms$SWLmu[x]+roms$MTWLmu[x],scale = roms$MTWLlam[x],ARI = 100,nMonteCarloSims = 100))))
+SWL_rls = t(sapply(1:length(roms), function(x) t(gumbel_mleAndConfIntvals(loc = roms$muOff[x],scale = roms$SWLlam[x],ARI = 1/AEP,nMonteCarloSims = 100))))
+MTWL_rls = t(sapply(1:length(roms), function(x) t(gumbel_mleAndConfIntvals(loc = roms$muOff[x]-roms$SWLmu[x]+roms$MTWLmu[x],scale = roms$MTWLlam[x],ARI = 1/AEP,nMonteCarloSims = 100))))
 
 gg = terra::geom(roms)
 out = data.frame(state = roms$state,lga = roms$lga,longitude = gg[,3],latitude = gg[,4],
@@ -203,69 +226,49 @@ out = data.frame(state = roms$state,lga = roms$lga,longitude = gg[,3],latitude =
                  MTWL_pc5 = MTWL_rls[,4], MTWLpc50 = MTWL_rls[,3], MTWLpc95 = MTWL_rls[,2])
 
 saout = out[out$state == "SA",]
-write.csv(saout,"data/SA_ROMS_CAWCR_OGRADY_ET_AL_2019_1pcAEP.csv",row.names = FALSE)
+write.csv(saout,paste0("data/SA_ROMS_CAWCR_OGRADY_ET_AL_2019_",AEP*100,"pcAEP.csv"),row.names = FALSE)
 
 tgsa = crop(tg,ext(roms[roms$state == "SA"]))
 
-tg_SWL_rls = t(sapply(1:length(tgsa), function(x) t(gumbel_mleAndConfIntvals(loc = tgsa$mle_1[x],scale = tgsa$mle_2[x],ARI = 100,nMonteCarloSims = 100))))
+tg_SWL_rls = t(sapply(1:length(tgsa), function(x) t(gumbel_mleAndConfIntvals(loc = tgsa$mle_1[x],scale = tgsa$mle_2[x],ARI = 1/AEP,nMonteCarloSims = 100))))
 
 gg = terra::geom(tgsa)
 tgout = data.frame(name = tgsa$Name,nCompleteYears = tgsa$nCompleteY,longitude = gg[,3],latitude = gg[,4],
                  SWL_pc5 = tg_SWL_rls[,4], SWLpc50 = tg_SWL_rls[,3], SWLpc95 = tg_SWL_rls[,2])
 
-write.csv(tgout,"data/SA_GESLA3_TIDEGAUGES_OGRADY_ET_AL_2019_1pcAEP.csv",row.names = FALSE)
+write.csv(tgout,paste0("data/SA_GESLA3_TIDEGAUGES_OGRADY_ET_AL_2019_",AEP*100,"pcAEP.csv"),row.names = FALSE)
 
 
-```
-
-```{r}
-
-#predict return levels
-AEP = 0.01
-return_level <- function(mu,lam,AEP){
-  z = mu+lam*(-log(-log(1-AEP)))
-  return(z)
-}
-
-
-#storm tide return level
-roms$SWL_RL = return_level(roms$muOff,roms$SWLlam,AEP)
-#storm tide plus wave setup
-roms$MTWL_RL = return_level(roms$muOff-roms$SWLmu+roms$MTWLmu,roms$MTWLlam,AEP)
-
-tg$SWL_RL = return_level(tg$mle_1,tg$mle_2,AEP)
-
-#compute MTWL
 ```
 
 ```{r}
 
 ats = seq(0,7,0.5)
 plotit = function(){
-  plot(roms,"SWL_RL",breaks=ats,range = range(ats), main = paste0("1% AEP extreme SWL (reletive to MSL of that year)"),type = "continuous",col = colzRamp(length(ats)-1))
+  plot(roms,"SWL_RL",breaks=ats,range = range(ats), main = paste0(AEP*100,"% AEP extreme SWL (reletive to MSL of that year)"),type = "continuous",col = colzRamp(length(ats)-1))
   plot(tg,"SWL_RL",add = TRUE,legend=FALSE,col = colzRamp(length(ats)-1),cex = 1.5,breaks=ats,range = range(ats))
   plot(tg,cex = 1.5,pch=1,add=TRUE)
 }
 
 plotit()
-pdf(paste0(outdir,"One_Percent_AEP_SLW.pdf"),width=12)
+pdf(paste0(outdir,AEP*100,"_Percent_AEP_SLW.pdf"),width=12)
 plotit()
 dev.off()
 ```
-Figure : Height (in m relative to mean sea level in a given year) of the 1% annual exceedance probability (AEP) extreme still water level (SWL) storm tide  (Source: [O’Grady et al 2019](https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2018JC014871)) overlayed here with GESLA3 tide gauge record estimates (Source [Canute 3](https://shiny.csiro.au/Canute3_0/)). This shows the height of a water level from the combination of storm surge and tide with a 1% chance of occurring, these heights can be offset with a mean sea level reference to a given year and vertical datum (e.g. AHD) and can be generated for any SLR or AEP for NCRA. Heights can also be generated with the inclusion of damaging wave effect (wave setup [O’Grady et al 2019](https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2018JC014871)) for sandy beach coastlines. Here, levelled heights can be integrated with land height data to map coastal flooding. Similar plots based on SCHISM data will be developed by ACS by June 2025.
+Figure : Height (in m relative to mean sea level in a given year) of the annual exceedance probability (AEP) extreme still water level (SWL) storm tide  (Source: [O’Grady et al 2019](https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2018JC014871)) overlayed here with GESLA3 tide gauge record estimates (Source [Canute 3](https://shiny.csiro.au/Canute3_0/)). This shows the height of a water level from the combination of storm surge and tide with a chance of occurring, these heights can be offset with a mean sea level reference to a given year and vertical datum (e.g. AHD) and can be generated for any SLR or AEP for NCRA. Heights can also be generated with the inclusion of damaging wave effect (wave setup [O’Grady et al 2019](https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2018JC014871)) for sandy beach coastlines. Here, levelled heights can be integrated with land height data to map coastal flooding. Similar plots based on SCHISM data will be developed by ACS by June 2025.
 
 ```{r}
 
 ats = seq(0,7,0.5)
-plotit = function() plot(roms,"MTWL_RL",breaks=ats,range = range(ats), main = paste0("1% AEP extreme MTWL (reletive to MSL of that year)"),type = "continuous",col = colzRamp(length(ats)-1))
+plotit = function() plot(roms,"MTWL_RL",breaks=ats,range = range(ats), main = paste0(AEP*100,"% AEP extreme MTWL (reletive to MSL of that year)"),type = "continuous",col = colzRamp(length(ats)-1))
 
 plotit()
-pdf(paste0(outdir,"One_Percent_AEP_MTWL.pdf"),width=12)
+pdf(paste0(outdir,AEP*100,"_Percent_AEP_MTWL.pdf"),width=12)
 plotit()
 dev.off()
 
 ```
-Figure : Height (in m relative to mean sea level in a given year) of the 1% annual exceedance probability (AEP) extreme mean total water level (MTWL) storm tide plus wave setup  (Source: [O’Grady et al 2019](https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2018JC014871), Canute 3). This shows the height of a water level from the combination of storm surge and tide and wave setup for sandy beaches with a 1% chance of occurring, these heights can be offset with a mean sea level reference to a given year and vertical datum (e.g. AHD) and can be generated for any SLR or AEP for NCRA. Heights can also be generated without the inclusion of damaging wave effect (still water level O’Grady et al 2009). Here, levelled heights can be integrated with land height data to map coastal flooding. Similar plots based on SCHISM data will be developed by ACS by June 2025.
+Figure : Height (in m relative to mean sea level in a given year) of the annual exceedance probability (AEP) extreme mean total water level (MTWL) storm tide plus wave setup  (Source: [O’Grady et al 2019](https://agupubs.onlinelibrary.wiley.com/doi/full/10.1029/2018JC014871), Canute 3). This shows the height of a water level from the combination of storm surge and tide and wave setup for sandy beaches with a chance of occurring, these heights can be offset with a mean sea level reference to a given year and vertical datum (e.g. AHD) and can be generated for any SLR or AEP for NCRA. Heights can also be generated without the inclusion of damaging wave effect (still water level O’Grady et al 2009). Here, levelled heights can be integrated with land height data to map coastal flooding. Similar plots based on SCHISM data will be developed by ACS by June 2025.
 
 ```{r}
 # Set initial Sea Level Rise value
@@ -328,8 +331,8 @@ plotit <- function(SLR) {
     longitude = ge[, 3], 
     latitude = ge[, 4], 
     SLR = dat$SLR, 
-    SWL_AEP1PC = round(dat$SWL_RL + dat$SLR, 2), 
-    MTWL_AEP1PC = round(dat$MTWL_RL + dat$SLR, 2), 
+    SWL_AEPPC = round(dat$SWL_RL + dat$SLR, 2), 
+    MTWL_AEPPC = round(dat$MTWL_RL + dat$SLR, 2), 
     SWL_MFSLR_50 = round(dat$SWL_MFSLR_50, 2), 
     SWL_MFSLR_10 = round(dat$SWL_MFSLR_10, 2), 
     SWL_MFSLR_90 = round(dat$SWL_MFSLR_90, 2), 
@@ -353,7 +356,7 @@ plotit <- function(SLR) {
     longitude = ge[, 3], 
     latitude = ge[, 4], 
     SLR = dattg$SLR, 
-    SWL_AEP1PC = round(dattg$SWL_RL + dattg$SLR, 2), 
+    SWL_AEPPC = round(dattg$SWL_RL + dattg$SLR, 2), 
     SWL_MFSLR_50 = round(dattg$SWL_MFSLR_50, 2), 
     SWL_MFSLR_10 = round(dattg$SWL_MFSLR_10, 2), 
     SWL_MFSLR_90 = round(dattg$SWL_MFSLR_90, 2) 
@@ -377,7 +380,7 @@ for (SLR in SLRs) {
 
 
 ```
-Figure : Multiplication/amplification factors ([Hunter 2012](https://link.springer.com/article/10.1007/s10584-011-0332-1)) of extreme storm tide water level and mean total water level (storm tide plus wave setup) AEPs (e.g. 1% AEP in Figure A1) for an amount of SLR (see figure title), overlayed here with GESLA3 tide gauge record estimates (Source Canute 3). Here, a AEP with an associated return level is mutiplied by these factors (e.g., 1% x 10) to yeild a new AEP (i.e., 10%) for the associated return level when considering sea level rise. These return levels can be aligned with coastal structure design levels (or DEMs) to understand the change in frequency of exceedence and can be generated for any SLR or AEP for the NCRA.
+Figure : Multiplication/amplification factors ([Hunter 2012](https://link.springer.com/article/10.1007/s10584-011-0332-1)) of extreme storm tide water level and mean total water level (storm tide plus wave setup) AEPs (e.g. AEP in Figure A1) for an amount of SLR (see figure title), overlayed here with GESLA3 tide gauge record estimates (Source Canute 3). Here, a AEP with an associated return level is mutiplied by these factors (e.g., AEP x 10) to yeild a new AEP (i.e., 10%) for the associated return level when considering sea level rise. These return levels can be aligned with coastal structure design levels (or DEMs) to understand the change in frequency of exceedence and can be generated for any SLR or AEP for the NCRA.
 
 ```{r}
 # Load necessary libraries
