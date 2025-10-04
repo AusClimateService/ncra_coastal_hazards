@@ -12,7 +12,8 @@ The code pipeline generates pdf images in the [plots](https://github.com/AusClim
 File names are in the format \<metric\>\_\<domain\>\_\<multimodel\_allpercentiles\>\_\<SLR\>\.csv:  
   
 * metric - Multiplication Factor
-* domain - [GESLAv3](https://gesla787883612.wordpress.com/) or [ACSSH](https://data.csiro.au/collection/csiro:29013?q=coast%20hindcast&_st=keyword&_str=4&_si=2)
+* domain - [GESLAv3](https://gesla787883612.wordpress.com/), [ACSSH](https://data.csiro.au/collection/csiro:29013?q=coast%20hindcast&_st=keyword&_str=4&_si=2) or 
+[CCHaPS](https://doi.org/10.25919/6tbn-px91)
 * multimodel_allpercentiles - files contain all percentiles.
 * SLR - Sea level [cm]  
   
@@ -76,26 +77,108 @@ colzRamp = colorRampPalette(rev(colz))
 
 ```{r}
 
-roms = vect("ROMS_gumbel_parameters_SWLandMTWL_Australia")
+cchaps = vect("CCHaPS_gumbel_parameters_SWLandMTWL_Australia")
+cchaps = cchaps[which(!is.na(cchaps$SWLlam) & !is.na(cchaps$MTWLlam)),]
+which(is.na(cchaps$SWLlam))
+which(is.na(cchaps$MTWLlam))
 
 tg = vect("gesla3_fgumbel_shp")
 tg = tg[tg$nCompleteY >= 20]
 
-#Align the ROMs 1 year ARI (63% AEP) location parameter to the nearest tide gauge value following O'Grady et al 2019 and Haigh et al. 2014.
-crs(roms) = crs(tg)
-nb = nearby(roms,tg)
-roms$muOff = tg$mle_1[nb[,2]]
+tg = crop(tg,ext(cchaps))
+
+#Align the cchaps 1 year ARI (63% AEP) location parameter to the nearest tide gauge value following O'Grady et al 2019 and Haigh et al. 2014.
+crs(cchaps) = crs(tg)
+nb = nearby(cchaps,tg)
+cchaps$muOff = tg$mle_1[nb[,2]]
+
+```
+```{r, include=FALSE}
+plot_with_stats <- function(x, y_roms, y_cchaps,
+                            xlab = "Observed (TG RL)",
+                            ylab = "Modelled RL",
+                            main = "TG vs ROMS & CCHaPS",
+                            roms_name = "ROMS",
+                            cchaps_name = "CCHaPS",
+                            legend_loc = "topleft") {
+  # Helper to compute stats on complete pairs
+  comp_stats <- function(x, y) {
+    idx <- is.finite(x) & is.finite(y)
+    x2 <- x[idx]; y2 <- y[idx]
+    r2    <- if (length(x2) > 1) cor(x2, y2)^2 else NA_real_
+    bias  <- mean(y2 - x2)
+    rmse  <- sqrt(mean((y2 - x2)^2))
+    list(r = r2, bias = bias, rmse = rmse, n = length(x2))
+  }
+
+  s_roms   <- comp_stats(x, y_roms)
+  s_cchaps <- comp_stats(x, y_cchaps)
+
+  # Base plot
+  plot(x, y_roms,
+       xlab = xlab, ylab = ylab, main = main,
+       pch = 1, col = "black",asp=1)
+  points(x, y_cchaps, pch = 1, col = "red")
+
+  # 1:1 reference line
+  abline(0, 1, lty = 2, col = "grey50")
+
+  # Legend text (two blocks: one per model)
+  leg <- c(
+    roms_name,
+    sprintf("  R2 = %.2f | Bias = %.2f | RMSE = %.3f (n=%d)",
+            s_roms$r2, s_roms$bias, s_roms$rmse, s_roms$n),
+    cchaps_name,
+    sprintf("  R2 = %.2f | Bias = %.2f | RMSE = %.3f (n=%d)",
+            s_cchaps$r2, s_cchaps$bias, s_cchaps$rmse, s_cchaps$n)
+  )
+
+  legend(legend_loc,
+         legend = leg,
+         col = c("black", NA, "red", NA),
+         pch = c(1, NA, 1, NA),
+         bty = "n")
+}
+
 
 ```
 
+
+Compare the ROMS and CCHaPS Return levels to the tide gauge (correcting for the location parameter acording to Haigh et al 2014 and O'Grady et al 2019) for a single AEP return level for each GESLA tide gauges with at least 20 years (118 gauges).
+
+
+
+```{r, fig.width=7, fig.height=7}
+bn = nearby(tg,cchaps)
+tg$cchaps_mu = cchaps$SWLmu[bn[,2]]
+tg$cchaps_lam = cchaps$SWLlam[bn[,2]]
+
+roms = vect("ROMS_gumbel_parameters_SWLandMTWL_Australia")
+crs(roms) = crs(tg)
+bn = nearby(tg,roms)
+tg$roms_mu = roms$SWLmu[bn[,2]]
+tg$roms_lam = roms$SWLlam[bn[,2]]
+
+AEPv = 0.02
+tg$RL = evd::qgev(1-AEPv,loc = tg$mle_1,scale = tg$mle_2,shape = 0)
+tg$roms_RL = evd::qgev(1-AEPv,loc = tg$mle_1,scale = tg$roms_lam,shape = 0)
+tg$cchaps_RL = evd::qgev(1-AEPv,loc = tg$mle_1,scale = tg$cchaps_lam,shape = 0)
+
+plot_with_stats(tg$RL, tg$roms_RL, tg$cchaps_RL, main = paste("TG vs ROMS & CCHaPS",AEPv,"AEP"))
+
+
+```
+
+CCHaPS slightly outperforms ROMS by halving the mean bias (–0.05 vs –0.11), while achieving a nearly identical RMSE (0.156 vs 0.157). Both models explain ~99% of the variance, but CCHaPS reduces systematic offset against TG observations, indicating a modest though meaningful improvement in accuracy.
+
 ```{r}
 #Define a region for each point
-#regions = project(vect("Coastal_Waters_areas_(AMB2020)"),roms)
+#regions = project(vect("Coastal_Waters_areas_(AMB2020)"),cchaps)
 #regions$state = c("VIC","TAS","QLD","NT","WA","SA","NSW")
 
-regionsb = project(vect("NCRA_regions_coastal_waters_GDA94"),roms)
+regionsb = project(vect("NCRA_regions_coastal_waters_GDA94"),cchaps)
 regionsb$short_name = regionsb$NCRA
-regionsc = project(vect("ncra_regions"),roms)
+regionsc = project(vect("ncra_regions"),cchaps)
 
 regionsl = lapply(regionsb$short_name, function(x) {
   y = aggregate(union(regionsb[regionsb$short_name == x],regionsc[regionsc$short_name == x]));
@@ -104,18 +187,18 @@ regions = vect(regionsl)
 regions$state
 plot(regions,"state")
 
-ints = relate(roms,regions,"intersects",pairs=TRUE)
-roms$state = NA
-roms$state[ints[,1]] = regions$state[ints[,2]]
-plot(roms,"state")
+ints = relate(cchaps,regions,"intersects",pairs=TRUE)
+cchaps$state = NA
+cchaps$state[ints[,1]] = regions$state[ints[,2]]
+plot(cchaps,"state")
 ```
 
 
 ```{r}
 lgas = vect("LGA_2024_AUST_GDA2020")
 lgas$id = 1:length(lgas)
-roms$id = 1:length(roms)
-romsp = project(roms,lgas)
+cchaps$id = 1:length(cchaps)
+cchapsp = project(cchaps,lgas)
 ```
 
 
@@ -136,13 +219,13 @@ write.csv(out,file = paste0("data/Coastal_lga_5m_centroid.csv"))
 
 ```{r}
 require(sf)
-nearest_lgas <- function(romsp, lgas) {
+nearest_lgas <- function(cchapsp, lgas) {
   # Convert SpatVector objects to sf objects
-  romsp_sf <- st_as_sf(romsp)
+  cchapsp_sf <- st_as_sf(cchapsp)
   lgas_sf <- st_as_sf(lgas)
   
-  # Find the nearest LGAs for each romsp feature
-  nearest_indices <- st_nearest_feature(romsp_sf, lgas_sf)
+  # Find the nearest LGAs for each cchapsp feature
+  nearest_indices <- st_nearest_feature(cchapsp_sf, lgas_sf)
   
   # Return the corresponding nearest LGA geometries or data
   nearest_lgas <- lgas_sf[nearest_indices, ]
@@ -150,13 +233,13 @@ nearest_lgas <- function(romsp, lgas) {
   return(nearest_lgas)
 }
 
-result <- nearest_lgas(romsp, lgas)
-roms$lga = result$LGA_NAME24
-plot(roms,"lga")
+result <- nearest_lgas(cchapsp, lgas)
+cchaps$lga = result$LGA_NAME24
+plot(cchaps,"lga")
 lines(lgas)
-#length(unique(roms$lga))
+#length(unique(cchaps$lga))
 
-#writeVector(roms,"roms/roms.shp",overwrite=TRUE)
+#writeVector(cchaps,"cchaps/cchaps.shp",overwrite=TRUE)
 ```
 
 
@@ -171,9 +254,9 @@ return_level <- function(mu,lam,AEP){
 
 
 #storm tide return level
-roms$SWL_RL = return_level(roms$muOff,roms$SWLlam,AEP)
+cchaps$SWL_RL = return_level(cchaps$muOff,cchaps$SWLlam,AEP)
 #storm tide plus wave setup
-roms$MTWL_RL = return_level(roms$muOff-roms$SWLmu+roms$MTWLmu,roms$MTWLlam,AEP)
+cchaps$MTWL_RL = return_level(cchaps$muOff-cchaps$SWLmu+cchaps$MTWLmu,cchaps$MTWLlam,AEP)
 
 tg$SWL_RL = return_level(tg$mle_1,tg$mle_2,AEP)
 
@@ -217,18 +300,18 @@ gumbel_mleAndConfIntvals = function(loc,scale,ARI = 1:500,nMonteCarloSims = 100,
   return(data.frame(ARIs = ARI,ep05 = ep05-ep50+mle,ep50=mle,ep95=ep95-ep50+mle))
 }
 
-SWL_rls = t(sapply(1:length(roms), function(x) t(gumbel_mleAndConfIntvals(loc = roms$muOff[x],scale = roms$SWLlam[x],ARI = 1/AEP,nMonteCarloSims = 100))))
-MTWL_rls = t(sapply(1:length(roms), function(x) t(gumbel_mleAndConfIntvals(loc = roms$muOff[x]-roms$SWLmu[x]+roms$MTWLmu[x],scale = roms$MTWLlam[x],ARI = 1/AEP,nMonteCarloSims = 100))))
+SWL_rls = t(sapply(1:length(cchaps), function(x) t(gumbel_mleAndConfIntvals(loc = cchaps$muOff[x],scale = cchaps$SWLlam[x],ARI = 1/AEP,nMonteCarloSims = 100))))
+MTWL_rls = t(sapply(1:length(cchaps), function(x) t(gumbel_mleAndConfIntvals(loc = cchaps$muOff[x]-cchaps$SWLmu[x]+cchaps$MTWLmu[x],scale = cchaps$MTWLlam[x],ARI = 1/AEP,nMonteCarloSims = 100))))
 
-gg = terra::geom(roms)
-out = data.frame(state = roms$state,lga = roms$lga,longitude = gg[,3],latitude = gg[,4],
+gg = terra::geom(cchaps)
+out = data.frame(state = cchaps$state,lga = cchaps$lga,longitude = gg[,3],latitude = gg[,4],
                  SWL_pc5 = SWL_rls[,4], SWLpc50 = SWL_rls[,3], SWLpc95 = SWL_rls[,2],
                  MTWL_pc5 = MTWL_rls[,4], MTWLpc50 = MTWL_rls[,3], MTWLpc95 = MTWL_rls[,2])
 
 saout = out[out$state == "SA",]
-write.csv(saout,paste0("data/SA_ROMS_CAWCR_OGRADY_ET_AL_2019_",AEP*100,"pcAEP.csv"),row.names = FALSE)
+write.csv(saout,paste0("data/SA_cchaps_WWM_OGRADY_ET_AL_2019_",AEP*100,"pcAEP.csv"),row.names = FALSE)
 
-tgsa = crop(tg,ext(roms[roms$state == "SA"]))
+tgsa = crop(tg,ext(cchaps[cchaps$state == "SA"]))
 
 tg_SWL_rls = t(sapply(1:length(tgsa), function(x) t(gumbel_mleAndConfIntvals(loc = tgsa$mle_1[x],scale = tgsa$mle_2[x],ARI = 1/AEP,nMonteCarloSims = 100))))
 
@@ -245,7 +328,7 @@ write.csv(tgout,paste0("data/SA_GESLA3_TIDEGAUGES_OGRADY_ET_AL_2019_",AEP*100,"p
 
 ats = seq(0,7,0.5)
 plotit = function(){
-  plot(roms,"SWL_RL",breaks=ats,range = range(ats), main = paste0(AEP*100,"% AEP extreme SWL (reletive to MSL of that year)"),type = "continuous",col = colzRamp(length(ats)-1))
+  plot(cchaps,"SWL_RL",breaks=ats,range = range(ats), main = paste0(AEP*100,"% AEP extreme SWL (reletive to MSL of that year)"),type = "continuous",col = colzRamp(length(ats)-1))
   plot(tg,"SWL_RL",add = TRUE,legend=FALSE,col = colzRamp(length(ats)-1),cex = 1.5,breaks=ats,range = range(ats))
   plot(tg,cex = 1.5,pch=1,add=TRUE)
 }
@@ -260,7 +343,7 @@ Figure : Height (in m relative to mean sea level in a given year) of the annual 
 ```{r}
 
 ats = seq(0,7,0.5)
-plotit = function() plot(roms,"MTWL_RL",breaks=ats,range = range(ats), main = paste0(AEP*100,"% AEP extreme MTWL (reletive to MSL of that year)"),type = "continuous",col = colzRamp(length(ats)-1))
+plotit = function() plot(cchaps,"MTWL_RL",breaks=ats,range = range(ats), main = paste0(AEP*100,"% AEP extreme MTWL (reletive to MSL of that year)"),type = "continuous",col = colzRamp(length(ats)-1))
 
 plotit()
 pdf(paste0(outdir,AEP*100,"_Percent_AEP_MTWL.pdf"),width=12)
@@ -319,7 +402,7 @@ plotMF <- function(v, att, ats, buf = 1, SLR = 0.6, ...) {
 plotit <- function(SLR) {
   par(mfrow = c(1, 2))
   
-  dat <- plotMF(v = roms, att = "SWL_MFSLR_50", ats = ats, SLR = SLR, 
+  dat <- plotMF(v = cchaps, att = "SWL_MFSLR_50", ats = ats, SLR = SLR, 
                 main = paste0("Extreme SWL multiplication factor for ", SLR, "m of SLR"), 
                 mar = c(2, 2, 2, 4) + 0.1)
   
@@ -340,11 +423,11 @@ plotit <- function(SLR) {
     MTWL_MFSLR_10 = round(dat$MTWL_MFSLR_10, 2), 
     MTWL_MFSLR_90 = round(dat$MTWL_MFSLR_90, 2)
   )
-  write.csv(out, file = paste0(outdir, "../data/MFSLR_ACSSH_MMALL_SLR", SLR * 100, "cm.csv"), row.names = FALSE)
+  write.csv(out, file = paste0(outdir, "../data/MFSLR_CCHaPS_MMALL_SLR", SLR * 100, "cm.csv"), row.names = FALSE)
   
   dattg <- plotMF(v=tg, att="SWL_MFSLR_50", ats = ats, SLR = SLR, cex = 1.5, add = TRUE, legend = FALSE)
   plot(tg, cex = 1.5, SLR = SLR, pch = 1, add = TRUE)
-  plotMF(v = roms, att = "MTWL_MFSLR_50", ats = ats, SLR = SLR, 
+  plotMF(v = cchaps, att = "MTWL_MFSLR_50", ats = ats, SLR = SLR, 
          main = paste0("Extreme MTWL multiplication factor for ", SLR, "m of SLR"), 
          mar = c(2, 2, 2, 4) + 0.1)
 
@@ -373,7 +456,7 @@ plotit(SLR = 0.6)
 
 # Loop over SLR values and generate plots and CSV files
 for (SLR in SLRs) {
-  pdf(paste0(outdir, "MFSLR_ACSSH_MM50_SLR_", SLR * 100, "cm.pdf"), width = 14, height = 5)
+  pdf(paste0(outdir, "MFSLR_CCHaPS_MM50_SLR_", SLR * 100, "cm.pdf"), width = 14, height = 5)
   plotit(SLR=SLR)
   dev.off()
 }
@@ -393,7 +476,7 @@ library(tidyr)
 #SLRs <- SLRs[-1] - SLRs[1]
 
 # Define the input file paths
-infiles <- paste0("data/MFSLR_ACSSH_MMALL_SLR", SLRs * 100, "cm.csv")
+infiles <- paste0("data/MFSLR_CCHaPS_MMALL_SLR", SLRs * 100, "cm.csv")
 
 # Initialize empty lists to store results for SWL and MTWL
 results_swl <- list()
