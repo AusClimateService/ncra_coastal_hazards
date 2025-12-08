@@ -82,6 +82,9 @@ cchaps = cchaps[which(!is.na(cchaps$SWLlam) & !is.na(cchaps$MTWLlam)),]
 which(is.na(cchaps$SWLlam))
 which(is.na(cchaps$MTWLlam))
 
+cchaps$beta2 = cchaps$beta
+cchaps$beta2[cchaps$beta2 == 0.087] = NA
+
 tg = vect("gesla3_fgumbel_shp")
 tg = tg[tg$nCompleteY >= 20]
 
@@ -105,10 +108,10 @@ plot_with_stats <- function(x, y_roms, y_cchaps,
   comp_stats <- function(x, y) {
     idx <- is.finite(x) & is.finite(y)
     x2 <- x[idx]; y2 <- y[idx]
-    r2    <- if (length(x2) > 1) cor(x2, y2)^2 else NA_real_
+    r    <- if (length(x2) > 1) cor(x2, y2) else NA_real_
     bias  <- mean(y2 - x2)
     rmse  <- sqrt(mean((y2 - x2)^2))
-    list(r = r2, bias = bias, rmse = rmse, n = length(x2))
+    list(r = r, bias = bias, rmse = rmse, n = length(x2))
   }
 
   s_roms   <- comp_stats(x, y_roms)
@@ -126,11 +129,11 @@ plot_with_stats <- function(x, y_roms, y_cchaps,
   # Legend text (two blocks: one per model)
   leg <- c(
     roms_name,
-    sprintf("  R2 = %.2f | Bias = %.2f | RMSE = %.3f (n=%d)",
-            s_roms$r2, s_roms$bias, s_roms$rmse, s_roms$n),
+    sprintf("  R = %.2f | Bias = %.2f | RMSE = %.3f (n=%d)",
+            s_roms$r, s_roms$bias, s_roms$rmse, s_roms$n),
     cchaps_name,
-    sprintf("  R2 = %.2f | Bias = %.2f | RMSE = %.3f (n=%d)",
-            s_cchaps$r2, s_cchaps$bias, s_cchaps$rmse, s_cchaps$n)
+    sprintf("  R = %.2f | Bias = %.2f | RMSE = %.3f (n=%d)",
+            s_cchaps$r, s_cchaps$bias, s_cchaps$rmse, s_cchaps$n)
   )
 
   legend(legend_loc,
@@ -246,7 +249,7 @@ lines(lgas)
 ```{r}
 
 #predict return levels
-AEP = 0.1
+AEP = 0.01
 return_level <- function(mu,lam,AEP){
   z = mu+lam*(-log(-log(1-AEP)))
   return(z)
